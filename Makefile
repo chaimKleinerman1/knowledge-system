@@ -15,7 +15,7 @@ $(VENV)/bin/python:
 	$(PYTHON) -m venv $(VENV)
 
 dev-backend:
-	cd $(BACKEND_DIR) && .venv/bin/uvicorn main:app --reload --port 8000
+	cd $(BACKEND_DIR) && .venv/bin/uvicorn main:create_app --factory --reload --port 8000
 
 dev-frontend:
 	cd $(FRONTEND_DIR) && npm run dev

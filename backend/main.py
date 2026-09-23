@@ -90,7 +90,7 @@ def mount_frontend(app: FastAPI, static_directory: Path) -> None:
         return FileResponse(index_file)
 
 
-app = create_app()
-
+# The app is built on demand (`uvicorn main:create_app --factory`), not at import time, so importing
+# this module never needs a .env: the tests build their own app with test settings.
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=Settings().PORT, reload=True)
+    uvicorn.run("main:create_app", factory=True, host="0.0.0.0", port=Settings().PORT, reload=True)
