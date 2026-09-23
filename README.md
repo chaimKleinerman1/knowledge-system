@@ -94,10 +94,13 @@ wins. Each hit says whether it matched by keyword, by meaning, or both, shown as
   even when the description missed a detail.
 - No separate OCR step: the vision model reads the text inside the image in the same call.
 - Files in GridFS, not a bucket, so the reviewer needs two secrets and one `docker compose up`.
-- No queue: processing runs in the request; `status`, `error` and a reprocess endpoint make
-  failures visible and recoverable.
-- MongoDB text index + cosine in Python, not Atlas Search, so the same code runs on the Atlas free
-  tier and on any plain MongoDB 8 (the tests use a throwaway container).
+- No queue, because scale is out of scope for the assignment: processing runs inside the upload
+  request (5–15 s). What a queue would give at this size is kept in a lighter form: the asset is
+  saved first, an AI error sets `status: "failed"` with a message, and a reprocess endpoint retries.
+  A queue and worker are the first thing to add for real traffic.
+- MongoDB text index + cosine in Python, not Atlas Search: no search indexes to manage, it works
+  on the Atlas free tier, and it is easy to explain. Atlas Vector Search is the upgrade path when
+  the corpus grows.
 - `.txt` and `.md` only; PDF is a next step (Gemini reads PDF natively).
 
 ## Limits and assumptions
