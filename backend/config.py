@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: int = 60
     LLM_MAX_RETRIES: int = 3
     AI_CONCURRENCY: int = 2
-    SEMANTIC_MIN_SCORE: float = 0.5
+    # Measured with gemini-embedding-2 on the sample set: true matches score 0.47-0.57, unrelated
+    # files stay at or below 0.44, so 0.45 keeps "dark automobile" -> black car and drops the noise.
+    SEMANTIC_MIN_SCORE: float = 0.45
     SEARCH_LIMIT: int = 10
     CORS_ORIGINS: str = "http://localhost:5173"
     PORT: int = 8000

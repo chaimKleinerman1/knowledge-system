@@ -69,9 +69,11 @@ class FakeAiClient:
 def _describe_text(payload: DescribePayload) -> AssetMetadata:
     text = payload.text or ""
     words = _distinct_words(text)
+    # Like the real prompt: only paperwork gets the "document" tag, plain notes do not.
+    generic_tags = ["text note", "document"] if any(word in DOCUMENT_WORDS for word in words) else ["text note"]
     return AssetMetadata(
         description=" ".join(text.split())[:DESCRIPTION_CHARS] or f"Text file named {payload.filename}",
-        tags=["text note", "document", *words[:MAX_FAKE_TAGS]],
+        tags=[*generic_tags, *words[:MAX_FAKE_TAGS]],
         keywords=words[:MAX_FAKE_KEYWORDS],
         text_content=None,
         text_truncated=payload.text_truncated,

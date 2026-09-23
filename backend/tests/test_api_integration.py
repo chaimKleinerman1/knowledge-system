@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient
 
 from ai.fake_client import FakeAiClient
+from ai.prompts import PROMPT_VERSION
 from config import Settings
 from database.assets_repository import AssetsRepository
 from database.files_repository import FILES_BUCKET_NAME
@@ -71,7 +72,7 @@ async def test_text_upload_is_analyzed_and_ready(client: AsyncClient):
     assert body["file_url"] == f"/api/assets/{body['id']}/file"
     assert "black" in body["ai"]["tags"] and "hair" in body["ai"]["tags"]
     assert body["ai"]["lang_code"] == "en"
-    assert body["ai"]["prompt_version"] == "v1"
+    assert body["ai"]["prompt_version"] == PROMPT_VERSION
     assert body["extracted_text"] is None
 
 

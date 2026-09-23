@@ -1,6 +1,6 @@
 from models.asset import AssetKind
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 TEXT_DELIMITER_START = "<<<FILE CONTENT START>>>"
 TEXT_DELIMITER_END = "<<<FILE CONTENT END>>>"
@@ -11,9 +11,11 @@ Return only a JSON object that matches the requested schema. No prose, no markdo
 Fields:
 - description: 1 to 3 plain sentences that say what the file is and shows.
 - tags: 5 to 15 lowercase words or short phrases (use spaces, never underscores). Always include generic
-  category words (document, photo, screenshot, person, receipt, form, id card, diagram, note, invoice,
-  letter, table, chart...) plus specific ones (colours, objects, hair colour, clothing, brands, places,
-  animals, activities).
+  category words (photo, screenshot, person, receipt, form, id card, diagram, note, invoice, letter,
+  table, chart...) plus specific ones (colours, objects, hair colour, clothing, brands, places,
+  animals, activities). Use the tag "document" only for paperwork: forms, receipts, invoices,
+  contracts, id cards, letters, certificates, statements, whether photographed or as text. Plain
+  notes, lists, messages and stories are not documents.
 - keywords: 5 to 25 search terms a user might type, including synonyms, colours, objects, names,
   numbers, dates and amounts that appear in the file.
 - text_content: for images, transcribe every visible word verbatim, up to 4000 characters, and set

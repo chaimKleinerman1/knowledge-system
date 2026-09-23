@@ -119,7 +119,7 @@ them with comments.
 | `LLM_TIMEOUT_SECONDS` | `60` | Timeout per AI call. |
 | `LLM_MAX_RETRIES` | `3` | Retries per AI call with exponential backoff. |
 | `AI_CONCURRENCY` | `2` | Max AI calls in flight (keeps the free tier under its rate limit). |
-| `SEMANTIC_MIN_SCORE` | `0.5` | Cosine threshold for the semantic list. Tune after the first live run. |
+| `SEMANTIC_MIN_SCORE` | `0.45` | Cosine threshold for the semantic list. Measured on the samples: true matches 0.47–0.57, noise at or below 0.44. |
 | `SEARCH_LIMIT` | `10` | Results returned per search. |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma separated origins allowed to call the API. |
 | `PORT` | `8000` | Listening port. Cloud Run and Compose set it themselves. |
@@ -159,8 +159,8 @@ until the answer arrives.
 6. **Embed.** One embedding call with the metadata text (description + tags + keywords + visible
    text). For images the same request also sends the image, so an image gets a second vector from
    its pixels. If the provider returns only one vector, the image vector is stored as null and the
-   upload still succeeds. Whether two vectors arrive from one LiteLLM call is to confirm after the
-   first live run.
+   upload still succeeds. Confirmed live: one LiteLLM call to `gemini-embedding-2` returns both
+   vectors, and the vision model transcribed the sample receipt and ID card word for word.
 7. **Save.** The document is updated with the metadata, the vectors and `status: "ready"`. Any AI
    error sets `status: "failed"` plus a short plain-English `error`; the upload itself still
    returns 201. "Retry analysis" in the UI calls `POST /api/assets/{id}/reprocess`.
@@ -225,8 +225,21 @@ The evaluation set behind the design (the two images with hair are not shipped i
 | hair_salon_notes.md | hit (phrase) | no |
 | contract_summary.txt | no | hit (stemming) |
 
-How well cross-modal retrieval ranks these live, and the right `SEMANTIC_MIN_SCORE`, are to
-confirm after the first live run.
+Measured cosine scores on the shipped samples with `gemini-embedding-2` (text vector / image
+vector), which is where the `0.45` threshold comes from:
+
+| Query | Right file | Its score | Best wrong file |
+|---|---|---|---|
+| black hair | hair_salon_notes.md | 0.53 | 0.47 (hebrew_note.txt, which is about hair too) |
+| dark automobile | black_car.png | 0.47 / 0.44 | 0.40 |
+| document | receipt.png, id_card.png, contract_summary.txt | 0.57, 0.52, 0.50 | 0.49 |
+| coffee | receipt.png | 0.57 | 0.44 |
+| שיער שחור (Hebrew) | hebrew_note.txt, hair_salon_notes.md | 0.57, 0.51 | 0.41 |
+| quantum physics lecture (no match) | none | – | 0.38 |
+
+Image vectors score lower than text vectors for the same query (0.44 vs 0.47 for the car), so the
+text vector usually wins; the image vector is the fallback for pictures whose description missed the
+detail. Hebrew queries find English files through meaning, which the keyword pass cannot do.
 
 ## Decisions and trade-offs
 
@@ -291,15 +304,17 @@ is the cheap path.
   WebP or GIF. HEIC and SVG are rejected. An oversize body is refused before it is parsed or
   spooled; a chunked body without `Content-Length` is cut off once it passes the limit.
 - Processing happens inside the upload request, so an upload takes as long as the AI answer.
-  Expected a few seconds per file; the actual number is to confirm after the first live run.
+  Measured on the Gemini free tier: 5–16 seconds per file (the ID card, with the most text, was
+  the slowest).
 - Keyword search stems English only. Hebrew keyword matches need the exact word form.
 - The semantic pass scans all vectors in Python. Fine for a demo, not for a large corpus.
 - The Gemini free tier has a low requests-per-minute limit; `AI_CONCURRENCY=2` keeps batch uploads
   under it, and a rate-limited call is retried with backoff before the asset is marked failed.
 - Text longer than 20,000 characters is described from its head and tail only; the middle still
   counts for keyword search through `extracted_text`.
-- The exact embedding model id and the free-tier quota are to confirm in AI Studio with the real
-  key.
+- The embedding model id `gemini-embedding-2` is confirmed live. The free-tier embedding quota is
+  tight: a burst of nine embedding calls in one minute returned 429. Normal use (one call per
+  search, one per upload) stays under it, and the retry with backoff covers short bursts.
 
 ## Data usage note for the Gemini free tier
 
