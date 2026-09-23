@@ -4,10 +4,9 @@ interface TagListProps {
   tags: string[];
   /** Show at most this many tags; the rest collapse into a "+N" tag with a tooltip. */
   max?: number;
-  color?: string;
 }
 
-export const TagList = ({ tags, max, color }: TagListProps) => {
+export const TagList = ({ tags, max }: TagListProps) => {
   const visibleTags = max === undefined ? tags : tags.slice(0, max);
   const hiddenTags = tags.slice(visibleTags.length);
 
@@ -19,7 +18,6 @@ export const TagList = ({ tags, max, color }: TagListProps) => {
       {visibleTags.map(tag => (
         <Tag
           key={tag}
-          color={color}
           style={{ marginInlineEnd: 0 }}
         >
           {tag}

@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from fastapi import UploadFile
 from pymongo.errors import DuplicateKeyError
 
 from ai.client import AiClient, DescribePayload
@@ -14,7 +15,7 @@ from database.files_repository import FilesRepository
 from models.asset import Asset, AssetKind
 from models.errors import AiAnswerCutOffError, AssetNotFoundError
 from services.processing.preparation import cap_stored_text, prepare_image, prepare_text
-from services.processing.validation import ByteStream, validate_upload
+from services.processing.validation import validate_upload
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +53,8 @@ class AssetService:
         self._ai_client = ai_client
         self._ai_semaphore = ai_semaphore
 
-    async def upload(self, filename: str | None, content_length: int | None, stream: ByteStream) -> UploadOutcome:
-        validated = await validate_upload(filename, content_length, stream, self._settings)
+    async def upload(self, file: UploadFile, content_length: int | None) -> UploadOutcome:
+        validated = await validate_upload(file, content_length, self._settings)
         existing = await self._assets.find_by_sha256(validated.sha256)
         if existing is not None:
             return await self._deduplicated(existing)

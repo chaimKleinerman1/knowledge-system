@@ -13,6 +13,8 @@ services:
       PORT: "8000"
       # Local and smoke use only: `AI_CLIENT=fake docker compose up` runs without an API key.
       AI_CLIENT: ${AI_CLIENT:-litellm}
+      # Overridable from the shell so a fake-client run can point at a throwaway database.
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-knowledge}
     depends_on:
       mongo:
         condition: service_healthy

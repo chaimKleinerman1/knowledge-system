@@ -3,9 +3,9 @@ import re
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Protocol
 
 import filetype
+from fastapi import UploadFile
 from PIL import Image, UnidentifiedImageError
 
 from config import Settings
@@ -20,15 +20,10 @@ READ_CHUNK_BYTES = 1024 * 1024
 MULTIPART_OVERHEAD_BYTES = 8 * 1024
 FALLBACK_FILENAME = "upload"
 MAX_FILENAME_CHARS = 255
-MAX_KEPT_EXTENSION_CHARS = 16
 # C0 and C1 control characters: uvicorn refuses them in the Content-Disposition header that serves the file.
 CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 UNSUPPORTED_TYPE_MESSAGE = "Unsupported file type. Upload a .txt or .md file, or a JPEG, PNG, WebP or GIF image."
-
-
-class ByteStream(Protocol):
-    async def read(self, size: int = -1) -> bytes: ...
 
 
 @dataclass(frozen=True)
@@ -41,16 +36,14 @@ class ValidatedUpload:
     sha256: str
 
 
-async def validate_upload(
-    filename: str | None, content_length: int | None, stream: ByteStream, settings: Settings
-) -> ValidatedUpload:
-    safe_filename = _safe_filename(filename)
-    extension = PurePosixPath(safe_filename).suffix.lower()
+async def validate_upload(file: UploadFile, content_length: int | None, settings: Settings) -> ValidatedUpload:
+    filename = _safe_filename(file.filename)
+    extension = PurePosixPath(filename).suffix.lower()
     size_limit = settings.MAX_TEXT_BYTES if extension in TEXT_MIME_TYPES_BY_EXTENSION else settings.MAX_IMAGE_BYTES
     if content_length is not None and content_length > size_limit + MULTIPART_OVERHEAD_BYTES:
-        raise FileTooLargeError(too_large_message(settings))
+        raise FileTooLargeError(_too_large_message(settings))
 
-    content = await _read_within_limit(stream, size_limit, settings)
+    content = await _read_within_limit(file, size_limit, settings)
     if not content:
         raise EmptyFileError("The file is empty.")
 
@@ -65,7 +58,7 @@ async def validate_upload(
         mime_type = _validate_image(content, detected.mime, settings)
 
     return ValidatedUpload(
-        filename=safe_filename,
+        filename=filename,
         kind=kind,
         mime_type=mime_type,
         content=content,
@@ -74,16 +67,16 @@ async def validate_upload(
     )
 
 
-async def _read_within_limit(stream: ByteStream, size_limit: int, settings: Settings) -> bytes:
+async def _read_within_limit(file: UploadFile, size_limit: int, settings: Settings) -> bytes:
     chunks: list[bytes] = []
     total = 0
     while True:
-        chunk = await stream.read(READ_CHUNK_BYTES)
+        chunk = await file.read(READ_CHUNK_BYTES)
         if not chunk:
             return b"".join(chunks)
         total += len(chunk)
         if total > size_limit:
-            raise FileTooLargeError(too_large_message(settings))
+            raise FileTooLargeError(_too_large_message(settings))
         chunks.append(chunk)
 
 
@@ -119,29 +112,15 @@ def _validate_image(content: bytes, mime_type: str, settings: Settings) -> str:
     return mime_type
 
 
-def max_upload_body_bytes(settings: Settings) -> int:
-    """The largest multipart body any upload may carry; the text limit applies once the file name is known."""
-    return settings.MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES
-
-
 def _safe_filename(filename: str | None) -> str:
     # Keep only the last path segment so a client cannot smuggle directories into the name.
     name = PurePosixPath((filename or "").replace("\\", "/")).name
     name = " ".join(CONTROL_CHARACTERS.sub("", name).split())
-    return _cap_filename_length(name) or FALLBACK_FILENAME
+    # Keep the tail so a long name still ends with its extension and the type check sees .txt or .md.
+    return name[-MAX_FILENAME_CHARS:] or FALLBACK_FILENAME
 
 
-def _cap_filename_length(name: str) -> str:
-    if len(name) <= MAX_FILENAME_CHARS:
-        return name
-    # A real extension survives the cut so the type check still sees .txt or .md; a giant one is cut like the rest.
-    extension = PurePosixPath(name).suffix
-    if len(extension) > MAX_KEPT_EXTENSION_CHARS:
-        extension = ""
-    return name[: MAX_FILENAME_CHARS - len(extension)] + extension
-
-
-def too_large_message(settings: Settings) -> str:
+def _too_large_message(settings: Settings) -> str:
     image_megabytes = settings.MAX_IMAGE_BYTES // (1024 * 1024)
     text_megabytes = settings.MAX_TEXT_BYTES // (1024 * 1024)
     return f"File is too big. Max {image_megabytes} MB for images, {text_megabytes} MB for text."

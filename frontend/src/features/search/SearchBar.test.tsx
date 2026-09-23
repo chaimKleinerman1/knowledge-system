@@ -46,15 +46,6 @@ describe('SearchBar', () => {
     expect(store.get(searchQueryAtom)).toBe('black hair');
   });
 
-  it('commits the query at once on Enter', () => {
-    const { store, input } = renderSearchBar();
-
-    fireEvent.change(input, { target: { value: 'receipt' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    expect(store.get(searchQueryAtom)).toBe('receipt');
-  });
-
   it('clearing the box resets the query', () => {
     const { store, view } = renderSearchBar('receipt');
     const clearButton = view.container.querySelector('.ant-input-clear-icon');

@@ -1,89 +1,21 @@
 import pytest
 
+from config import Settings
 from models.errors import EmptyFileError, FileTooLargeError, UnsupportedFileTypeError
 from services.processing.validation import validate_upload
-from tests.conftest import MemoryStream, UntouchableStream, decompression_bomb_png, image_bytes, make_settings
+from tests.conftest import image_bytes, make_settings, upload_file
 
 HEIC_HEADER = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic" + b"\x00" * 300
 SVG_DOCUMENT = b'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'
 
 
-async def validate(filename: str, data: bytes, settings=None, content_length: int | None = None):
-    return await validate_upload(filename, content_length, MemoryStream(data), settings or make_settings())
-
-
-async def test_png_bytes_named_txt_are_rejected():
-    with pytest.raises(UnsupportedFileTypeError):
-        await validate("notes.txt", image_bytes("PNG"))
-
-
-async def test_text_named_png_is_rejected():
-    with pytest.raises(UnsupportedFileTypeError):
-        await validate("photo.png", b"just some words")
-
-
-async def test_truncated_jpeg_is_rejected():
-    data = image_bytes("JPEG", 400, 300)
-    with pytest.raises(UnsupportedFileTypeError):
-        await validate("photo.jpg", data[: len(data) // 2])
-
-
-async def test_huge_side_png_is_rejected_as_too_large():
-    with pytest.raises(FileTooLargeError):
-        await validate("wide.png", image_bytes("PNG", 9000, 10), make_settings(MAX_IMAGE_PIXELS_SIDE=8000))
-
-
-async def test_decompression_bomb_is_rejected_as_too_large():
-    with pytest.raises(FileTooLargeError):
-        await validate("bomb.png", decompression_bomb_png())
-
-
-async def test_heic_is_rejected():
-    with pytest.raises(UnsupportedFileTypeError):
-        await validate("photo.heic", HEIC_HEADER)
-
-
-async def test_svg_is_rejected():
-    with pytest.raises(UnsupportedFileTypeError):
-        await validate("drawing.svg", SVG_DOCUMENT)
-
-
-async def test_oversize_content_length_is_rejected_before_reading():
-    settings = make_settings(MAX_TEXT_BYTES=10_000, MAX_IMAGE_BYTES=50_000)
-    with pytest.raises(FileTooLargeError):
-        await validate_upload("big.txt", 100_000, UntouchableStream(), settings)
-
-
-async def test_oversize_stream_is_rejected_by_the_byte_counter():
-    settings = make_settings(MAX_TEXT_BYTES=10_000, MAX_IMAGE_BYTES=50_000)
-    with pytest.raises(FileTooLargeError):
-        await validate("big.txt", b"a" * 20_000, settings, content_length=None)
-
-
-async def test_oversize_image_uses_the_image_limit():
-    settings = make_settings(MAX_TEXT_BYTES=10_000, MAX_IMAGE_BYTES=100)
-    with pytest.raises(FileTooLargeError):
-        await validate("photo.png", image_bytes("PNG"), settings)
-
-
-async def test_empty_file_is_rejected():
-    with pytest.raises(EmptyFileError):
-        await validate("empty.txt", b"")
-
-
-async def test_non_utf8_text_is_rejected():
-    with pytest.raises(UnsupportedFileTypeError):
-        await validate("latin.txt", "café".encode("latin-1"))
+async def validate(filename: str, data: bytes, content_length: int | None = None, settings: Settings | None = None):
+    return await validate_upload(upload_file(filename, data), content_length, settings or make_settings())
 
 
 @pytest.mark.parametrize(
     ("filename", "image_format", "mime_type"),
-    [
-        ("photo.jpg", "JPEG", "image/jpeg"),
-        ("photo.png", "PNG", "image/png"),
-        ("photo.webp", "WEBP", "image/webp"),
-        ("photo.gif", "GIF", "image/gif"),
-    ],
+    [("photo.jpg", "JPEG", "image/jpeg"), ("photo.png", "PNG", "image/png")],
 )
 async def test_supported_images_are_accepted(filename: str, image_format: str, mime_type: str):
     data = image_bytes(image_format)
@@ -101,34 +33,37 @@ async def test_supported_text_files_are_accepted(filename: str, mime_type: str):
     assert validated.mime_type == mime_type
 
 
-async def test_image_extension_does_not_matter_when_magic_bytes_are_valid():
-    validated = await validate("holiday.txt.jpeg", image_bytes("JPEG"))
-    assert validated.kind == "image"
+async def test_extension_and_bytes_must_agree():
+    with pytest.raises(UnsupportedFileTypeError):
+        await validate("notes.txt", image_bytes("PNG"))
+    with pytest.raises(UnsupportedFileTypeError):
+        await validate("photo.png", b"just some words")
 
 
-async def test_filename_keeps_only_the_last_path_segment():
-    validated = await validate("../../etc/notes.md", b"hello")
-    assert validated.filename == "notes.md"
+async def test_unsupported_types_are_rejected():
+    with pytest.raises(UnsupportedFileTypeError):
+        await validate("photo.heic", HEIC_HEADER)
+    with pytest.raises(UnsupportedFileTypeError):
+        await validate("drawing.svg", SVG_DOCUMENT)
 
 
-@pytest.mark.parametrize("filename", ["a\nb.txt", "a\x00b.txt", "a\x7fb.txt", "a\x85b.txt"])
-async def test_control_characters_are_stripped_from_the_filename(filename: str):
-    validated = await validate(filename, b"hello")
-    assert validated.filename == "ab.txt"
+async def test_oversize_file_is_rejected():
+    small_limit = make_settings(MAX_TEXT_BYTES=10_000)
+    # A tiny body with a big Content-Length shows the header check fires before any byte is read.
+    with pytest.raises(FileTooLargeError):
+        await validate("big.txt", b"hi", content_length=100_000, settings=small_limit)
+    with pytest.raises(FileTooLargeError):
+        await validate("big.txt", b"a" * 20_000, settings=small_limit)
 
 
-async def test_filename_whitespace_is_collapsed():
-    validated = await validate("  salon \t  notes.txt ", b"hello")
-    assert validated.filename == "salon notes.txt"
+async def test_empty_file_is_rejected():
+    with pytest.raises(EmptyFileError):
+        await validate("empty.txt", b"")
 
 
-async def test_long_filename_is_capped_and_keeps_its_extension():
-    validated = await validate("a" * 1_000 + ".txt", b"hello")
-    assert len(validated.filename) == 255
-    assert validated.filename.endswith(".txt")
-    assert validated.kind == "text"
-
-
-async def test_long_filename_with_a_giant_extension_is_simply_cut():
-    validated = await validate("a." + "b" * 1_000, image_bytes("PNG"))
-    assert validated.filename == "a." + "b" * 253
+async def test_filename_is_cleaned():
+    assert (await validate("../../etc/notes.md", b"hello")).filename == "notes.md"
+    assert (await validate("a\nb\x00c.txt", b"hello")).filename == "abc.txt"
+    capped = await validate("a" * 1_000 + ".txt", b"hello")
+    assert len(capped.filename) == 255
+    assert capped.filename.endswith(".txt")

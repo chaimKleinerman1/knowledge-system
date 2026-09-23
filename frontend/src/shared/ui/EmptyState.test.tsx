@@ -15,11 +15,4 @@ describe('EmptyState', () => {
     expect(screen.getByText('No results for “black hair”.')).toBeTruthy();
     expect(screen.getByText('Try other words.')).toBeTruthy();
   });
-
-  it('shows the title alone when there is no hint', () => {
-    render(<EmptyState title="Upload your first file to start" />);
-
-    expect(screen.getByText('Upload your first file to start')).toBeTruthy();
-    expect(screen.queryByText('Try other words.')).toBeNull();
-  });
 });

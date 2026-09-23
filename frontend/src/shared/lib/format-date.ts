@@ -1,7 +1,4 @@
 import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-
-dayjs.extend(relativeTime);
 
 const HAS_TIMEZONE = /(Z|[+-]\d{2}:?\d{2})$/i;
 
@@ -9,5 +6,3 @@ const HAS_TIMEZONE = /(Z|[+-]\d{2}:?\d{2})$/i;
 const parseServerDate = (value: string): dayjs.Dayjs => dayjs(HAS_TIMEZONE.test(value) ? value : `${value}Z`);
 
 export const formatDateTime = (value: string): string => parseServerDate(value).format('MMM D, YYYY HH:mm');
-
-export const formatRelativeTime = (value: string): string => parseServerDate(value).fromNow();

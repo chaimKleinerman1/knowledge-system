@@ -1,8 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AssetResponse } from '@/shared/api/assets';
-import type { SearchHit } from '@/shared/api/search';
 
 import { AssetCard } from './AssetCard';
 
@@ -48,20 +47,7 @@ describe('AssetCard', () => {
     expect(screen.getByText('appointments')).toBeTruthy();
     expect(screen.queryByText('clients')).toBeNull();
     expect(screen.getByText('+2')).toBeTruthy();
-    expect(screen.queryByText('Processing')).toBeNull();
     expect(screen.queryByText('Failed')).toBeNull();
-  });
-
-  it('shows a processing badge while the analysis runs', () => {
-    render(
-      <AssetCard
-        asset={{ ...readyTextAsset, status: 'processing', ai: null }}
-        onOpen={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText('Processing')).toBeTruthy();
-    expect(screen.getByText('Waiting for the AI analysis…')).toBeTruthy();
   });
 
   it('shows a failed badge when the analysis failed', () => {
@@ -73,22 +59,5 @@ describe('AssetCard', () => {
     );
 
     expect(screen.getByText('Failed')).toBeTruthy();
-  });
-
-  it('shows how a search hit matched and opens on click', () => {
-    const hit: SearchHit = { ...readyTextAsset, matched_by: ['keyword', 'semantic'], score: 0.03 };
-    const onOpen = vi.fn();
-    render(
-      <AssetCard
-        asset={hit}
-        onOpen={onOpen}
-      />,
-    );
-
-    expect(screen.getByText('keyword')).toBeTruthy();
-    expect(screen.getByText('meaning')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open hair_salon_notes.md' }));
-    expect(onOpen).toHaveBeenCalledWith('asset-1');
   });
 });

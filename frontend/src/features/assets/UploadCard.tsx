@@ -1,17 +1,43 @@
-import './UploadCard.css';
-
 import { InboxOutlined } from '@ant-design/icons';
-import { App, Card, Upload, type UploadProps } from 'antd';
+import { App, Card, Flex, Spin, Typography, Upload, type UploadProps } from 'antd';
 
+import type { AssetResponse } from '@/shared/api/assets';
+import { getErrorMessage } from '@/shared/api/http-client';
 import { ACCEPTED_UPLOAD_TYPES, FILE_TOO_BIG_MESSAGE, UNSUPPORTED_FILE_MESSAGE } from '@/shared/lib/constants';
+import { TagList } from '@/shared/ui/TagList';
 
-import { useUploadQueue } from './hooks/use-upload-queue';
+import { useUploadAsset } from './hooks/use-upload-asset';
 import { isAcceptedFile, isFileTooBig } from './upload-limits';
-import { UploadJobList } from './UploadJobList';
+
+const RESULT_TAG_LIMIT = 5;
+
+const UploadResult = ({ asset }: { asset: AssetResponse }) => {
+  if (asset.deduplicated) {
+    return <Typography.Text type="secondary">Already in the library.</Typography.Text>;
+  }
+  if (asset.status === 'failed') {
+    return (
+      <Typography.Text type="warning">
+        {asset.error ?? 'The AI analysis failed.'} Open the file to retry.
+      </Typography.Text>
+    );
+  }
+  return (
+    <>
+      <Typography.Text type="success">Ready</Typography.Text>
+      {asset.ai && (
+        <TagList
+          tags={asset.ai.tags}
+          max={RESULT_TAG_LIMIT}
+        />
+      )}
+    </>
+  );
+};
 
 export const UploadCard = () => {
   const { message } = App.useApp();
-  const { jobs, enqueue, dismissJob } = useUploadQueue();
+  const upload = useUploadAsset();
 
   const beforeUpload: UploadProps['beforeUpload'] = file => {
     if (isFileTooBig(file)) {
@@ -23,7 +49,7 @@ export const UploadCard = () => {
 
   const customRequest: UploadProps['customRequest'] = ({ file }) => {
     if (file instanceof File) {
-      enqueue(file);
+      upload.mutate(file, { onError: error => void message.error(getErrorMessage(error)) });
     }
   };
 
@@ -38,8 +64,9 @@ export const UploadCard = () => {
   return (
     <Card>
       <Upload.Dragger
-        multiple
+        multiple={false}
         accept={ACCEPTED_UPLOAD_TYPES}
+        disabled={upload.isPending}
         showUploadList={false}
         beforeUpload={beforeUpload}
         customRequest={customRequest}
@@ -48,14 +75,27 @@ export const UploadCard = () => {
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
         </p>
-        <p className="ant-upload-text">Click or drag files here to upload</p>
+        <p className="ant-upload-text">Click or drag a file here to upload</p>
         <p className="ant-upload-hint">Text files (.txt, .md) up to 1 MB. Images (JPEG, PNG, WebP, GIF) up to 10 MB.</p>
       </Upload.Dragger>
-      {jobs.length > 0 && (
-        <UploadJobList
-          jobs={jobs}
-          onDismiss={dismissJob}
-        />
+      {(upload.isPending || upload.isSuccess) && (
+        <Flex
+          gap={8}
+          align="center"
+          wrap
+          style={{ marginTop: 16 }}
+          aria-live="polite"
+        >
+          {upload.isPending && <Spin size="small" />}
+          <Typography.Text ellipsis={{ tooltip: upload.variables.name }}>{upload.variables.name}</Typography.Text>
+          {upload.isPending ? (
+            <Typography.Text type="secondary">
+              {upload.isAnalyzing ? 'Analyzing with AI…' : 'Uploading…'}
+            </Typography.Text>
+          ) : (
+            <UploadResult asset={upload.data} />
+          )}
+        </Flex>
       )}
     </Card>
   );

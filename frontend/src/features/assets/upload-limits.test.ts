@@ -1,27 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import { isAcceptedFile } from './upload-limits';
+import { MAX_IMAGE_BYTES, MAX_TEXT_BYTES } from '@/shared/lib/constants';
 
-const makeFile = (name: string, type: string): File => new File(['content'], name, { type });
+import { isAcceptedFile, isFileTooBig } from './upload-limits';
 
-describe('isAcceptedFile', () => {
-  it.each([
-    ['notes.txt', 'text/plain'],
-    ['README.MD', ''],
-    ['photo.jpg', 'image/jpeg'],
-    ['photo.png', 'image/png'],
-    ['photo.webp', 'image/webp'],
-    ['animation.gif', 'image/gif'],
-  ])('accepts %s', (name, type) => {
-    expect(isAcceptedFile(makeFile(name, type))).toBe(true);
+const makeFile = (name: string, type: string, sizeBytes = 7): File =>
+  new File([new Uint8Array(sizeBytes)], name, { type });
+
+describe('upload limits', () => {
+  it('accepts text files by extension and images by type', () => {
+    expect(isAcceptedFile(makeFile('notes.txt', 'text/plain'))).toBe(true);
+    expect(isAcceptedFile(makeFile('README.MD', ''))).toBe(true);
+    expect(isAcceptedFile(makeFile('photo.jpg', 'image/jpeg'))).toBe(true);
+    expect(isAcceptedFile(makeFile('contract.pdf', 'application/pdf'))).toBe(false);
+    expect(isAcceptedFile(makeFile('photo.heic', 'image/heic'))).toBe(false);
   });
 
-  it.each([
-    ['contract.pdf', 'application/pdf'],
-    ['photo.heic', 'image/heic'],
-    ['logo.svg', 'image/svg+xml'],
-    ['folder', ''],
-  ])('rejects %s', (name, type) => {
-    expect(isAcceptedFile(makeFile(name, type))).toBe(false);
+  it('applies the image limit to images and the text limit to everything else', () => {
+    expect(isFileTooBig(makeFile('photo.png', 'image/png', MAX_IMAGE_BYTES))).toBe(false);
+    expect(isFileTooBig(makeFile('photo.png', 'image/png', MAX_IMAGE_BYTES + 1))).toBe(true);
+    expect(isFileTooBig(makeFile('notes.txt', 'text/plain', MAX_TEXT_BYTES))).toBe(false);
+    expect(isFileTooBig(makeFile('notes.txt', 'text/plain', MAX_TEXT_BYTES + 1))).toBe(true);
   });
 });

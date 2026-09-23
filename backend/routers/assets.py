@@ -25,7 +25,7 @@ async def upload_asset(
     file: Annotated[UploadFile, File()],
     service: AssetServiceDependency,
 ) -> AssetResponse:
-    outcome = await service.upload(file.filename, _content_length(request), file)
+    outcome = await service.upload(file, _content_length(request))
     if outcome.deduplicated:
         response.status_code = status.HTTP_200_OK
     return AssetResponse.from_asset(outcome.asset, deduplicated=outcome.deduplicated)
