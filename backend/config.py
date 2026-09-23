@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = "knowledge"
     GEMINI_API_KEY: str = ""
     LLM_MODEL: str = "gemini/gemini-3.1-flash-lite"
+    # Tried when the main model fails after its retries; Gemini's cheapest model answers
+    # "503 high demand" from time to time. Empty disables the fallback.
+    LLM_FALLBACK_MODEL: str = "gemini/gemini-3.5-flash-lite"
     EMBEDDING_MODEL: str = "gemini/gemini-embedding-2"
     EMBEDDING_DIMENSIONS: int = 768
     MAX_IMAGE_BYTES: int = 10 * 1024 * 1024

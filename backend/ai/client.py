@@ -51,6 +51,7 @@ class LiteLlmAiClient:
     async def describe(self, kind: AssetKind, payload: DescribePayload) -> DescribeResult:
         # Temperature is left at the provider default on purpose: Gemini 3 models
         # are documented to loop when it is lowered.
+        fallback_models = [self._settings.LLM_FALLBACK_MODEL] if self._settings.LLM_FALLBACK_MODEL else None
         response = await litellm.acompletion(
             model=self._settings.LLM_MODEL,
             messages=build_messages(kind, payload.filename, payload.text, payload.image_data_uri),
@@ -59,6 +60,7 @@ class LiteLlmAiClient:
             timeout=self._settings.LLM_TIMEOUT_SECONDS,
             num_retries=self._settings.LLM_MAX_RETRIES,
             retry_strategy="exponential_backoff_retry",
+            fallbacks=fallback_models,
         )
         choice = response.choices[0]
         finish_reason = choice.finish_reason

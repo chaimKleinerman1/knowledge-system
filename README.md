@@ -126,8 +126,10 @@ The API, all under `/api`:
 - Search is English-first: MongoDB stems English only, so a Hebrew keyword must match the whole
   word. The semantic pass still finds Hebrew queries by meaning.
 - The semantic pass scans every vector in Python. Fine for hundreds of files, not for millions.
-- The Gemini free tier has a low requests-per-minute limit; calls retry with backoff before an
-  asset is marked failed.
+- The Gemini free tier has a low requests-per-minute limit, and the cheapest model sometimes
+  answers "503 high demand". Calls retry with backoff, then fall back to `gemini-3.5-flash-lite`
+  (`LLM_FALLBACK_MODEL`), and only then is the asset marked failed. The asset records which
+  model answered.
 - A field named `language` would break the MongoDB text index (MongoDB reads it as the document's
   text language and rejects values like `he`), so the field is called `lang_code`.
 
