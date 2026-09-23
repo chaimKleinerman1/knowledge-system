@@ -109,3 +109,26 @@ async def test_image_extension_does_not_matter_when_magic_bytes_are_valid():
 async def test_filename_keeps_only_the_last_path_segment():
     validated = await validate("../../etc/notes.md", b"hello")
     assert validated.filename == "notes.md"
+
+
+@pytest.mark.parametrize("filename", ["a\nb.txt", "a\x00b.txt", "a\x7fb.txt", "a\x85b.txt"])
+async def test_control_characters_are_stripped_from_the_filename(filename: str):
+    validated = await validate(filename, b"hello")
+    assert validated.filename == "ab.txt"
+
+
+async def test_filename_whitespace_is_collapsed():
+    validated = await validate("  salon \t  notes.txt ", b"hello")
+    assert validated.filename == "salon notes.txt"
+
+
+async def test_long_filename_is_capped_and_keeps_its_extension():
+    validated = await validate("a" * 1_000 + ".txt", b"hello")
+    assert len(validated.filename) == 255
+    assert validated.filename.endswith(".txt")
+    assert validated.kind == "text"
+
+
+async def test_long_filename_with_a_giant_extension_is_simply_cut():
+    validated = await validate("a." + "b" * 1_000, image_bytes("PNG"))
+    assert validated.filename == "a." + "b" * 253

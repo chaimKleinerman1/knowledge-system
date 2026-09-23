@@ -132,10 +132,15 @@ until the answer arrives.
 
 1. **Validate.** The type comes from the magic bytes of the file, never from the client's
    `Content-Type`. Allowed images: JPEG, PNG, WebP, GIF (HEIC and SVG are rejected). A file with no
-   magic number must end in `.txt` or `.md` and decode as strict UTF-8. Size limits are checked from
-   `Content-Length` first and again while reading in 1 MiB chunks; sha256 is computed in the same
-   pass. Images are opened and verified with Pillow; a side above 8000 px or a decompression bomb
-   is rejected. Empty files return 400, too-large 413, wrong type 415.
+   magic number must end in `.txt` or `.md` and decode as strict UTF-8. Size limits are enforced in
+   two layers. A small ASGI middleware answers 413 to a `Content-Length` above the image limit
+   before the multipart body is parsed, and cuts the request off (413, connection closed) as soon
+   as the streamed bytes pass that limit. The handler then re-checks against the limit for the
+   actual type (10 MB images, 1 MB text) while reading in 1 MiB chunks, computing sha256 in the
+   same pass. A body sent without `Content-Length` (chunked) skips the header check but not the
+   byte counter. Images are opened and verified with Pillow; a side above 8000 px or a
+   decompression bomb is rejected. File names lose their path, control characters and anything
+   past 255 characters. Empty files return 400, too-large 413, wrong type 415.
 2. **Deduplicate.** The sha256 has a unique index. A repeat upload returns the existing asset with
    `deduplicated: true`. If that asset had failed, it is reprocessed first.
 3. **Store.** Bytes go to GridFS; the asset document is inserted with `status: "processing"`.
@@ -283,7 +288,8 @@ is the cheap path.
 - No authentication. Anyone who can reach the URL can upload, search and delete.
 - Single process, single container. No horizontal scaling, no rate limiting on the API itself.
 - Uploads: images up to 10 MB and 8000 px per side; text up to 1 MB. Images must be JPEG, PNG,
-  WebP or GIF. HEIC and SVG are rejected.
+  WebP or GIF. HEIC and SVG are rejected. An oversize body is refused before it is parsed or
+  spooled; a chunked body without `Content-Length` is cut off once it passes the limit.
 - Processing happens inside the upload request, so an upload takes as long as the AI answer.
   Expected a few seconds per file; the actual number is to confirm after the first live run.
 - Keyword search stems English only. Hebrew keyword matches need the exact word form.
@@ -309,8 +315,13 @@ Backend (`backend/tests`, pytest with `asyncio_mode = auto`):
 
 - `test_validation.py`: PNG bytes named `.txt` and text named `.png` are rejected (415), truncated
   JPEG (415), huge PNG (413), HEIC (415), SVG (415), oversize via `Content-Length` and via the byte
-  counter (413), empty file (400), and happy paths for JPEG, PNG, WebP, GIF, `.txt`, `.md`. Fixtures
-  are built in the test with Pillow.
+  counter (413), empty file (400), file names with paths, control characters or 1,000 characters,
+  and happy paths for JPEG, PNG, WebP, GIF, `.txt`, `.md`. Fixtures are built in the test with
+  Pillow.
+- `test_upload_size_limit.py`: through the real app, an oversize `Content-Length` is refused with
+  no body read, and a chunked oversize body is cut off at the limit.
+- `test_content_disposition.py`: the ASCII fallback in the file header never carries control
+  characters.
 - `test_fusion.py`: cosine similarity and reciprocal rank fusion with the worked example above.
 - `test_preparation.py`: head/tail truncation, thumbnail size, data URI prefix.
 - `test_metadata_normalisation.py`: lowercase, dedupe, underscore to space, list caps.

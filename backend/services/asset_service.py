@@ -84,6 +84,10 @@ class AssetService:
             if winner is None:
                 raise
             return await self._deduplicated(winner)
+        except Exception:
+            # Without a document nothing would ever reference, or delete, the stored bytes.
+            await self._files.delete(gridfs_id)
+            raise
 
         asset = await self._analyze(asset_id, validated.kind, prepared.payload)
         return UploadOutcome(asset=asset, deduplicated=False)
@@ -93,8 +97,8 @@ class AssetService:
         content = await self._files.download(asset.gridfs_id)
         if content is None:
             raise AssetNotFoundError(ASSET_NOT_FOUND_MESSAGE)
-        await self._assets.update(asset_id, {"status": "processing", "error": None})
         prepared = self._prepare(asset.kind, content, asset.filename)
+        await self._assets.update(asset_id, {"status": "processing", "error": None})
         return await self._analyze(asset_id, asset.kind, prepared.payload)
 
     async def get(self, asset_id: str, *, include_content: bool = False) -> Asset:

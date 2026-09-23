@@ -20,7 +20,9 @@ from database.mongo import create_mongo_client, get_database
 from routers import assets, health, search
 from routers.dependencies import AppContainer
 from routers.error_handlers import register_error_handlers
+from routers.upload_size_limit import UploadSizeLimitMiddleware
 from services.asset_service import AssetService
+from services.processing.validation import max_upload_body_bytes, too_large_message
 from services.search_service import SearchService
 
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +66,13 @@ def create_app(settings: Settings | None = None, ai_client: AiClient | None = No
         await mongo_client.close()
 
     app = FastAPI(title="Knowledge Base API", lifespan=lifespan)
+    # Registered before CORS so the CORS layer wraps it and a browser can still read the 413 body.
+    app.add_middleware(
+        UploadSizeLimitMiddleware,
+        path=f"{API_PREFIX}{assets.router.prefix}",
+        max_body_bytes=max_upload_body_bytes(app_settings),
+        message=too_large_message(app_settings),
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=app_settings.cors_origin_list,

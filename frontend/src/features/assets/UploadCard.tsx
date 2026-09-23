@@ -3,10 +3,10 @@ import './UploadCard.css';
 import { InboxOutlined } from '@ant-design/icons';
 import { App, Card, Upload, type UploadProps } from 'antd';
 
-import { ACCEPTED_UPLOAD_TYPES, FILE_TOO_BIG_MESSAGE } from '@/shared/lib/constants';
+import { ACCEPTED_UPLOAD_TYPES, FILE_TOO_BIG_MESSAGE, UNSUPPORTED_FILE_MESSAGE } from '@/shared/lib/constants';
 
 import { useUploadQueue } from './hooks/use-upload-queue';
-import { isFileTooBig } from './upload-limits';
+import { isAcceptedFile, isFileTooBig } from './upload-limits';
 import { UploadJobList } from './UploadJobList';
 
 export const UploadCard = () => {
@@ -27,6 +27,14 @@ export const UploadCard = () => {
     }
   };
 
+  const onDrop: UploadProps['onDrop'] = event => {
+    // Dropped files outside `accept` never reach beforeUpload or the server, so the message has to come from here.
+    const hasUnsupportedFile = Array.from(event.dataTransfer.files).some(file => !isAcceptedFile(file));
+    if (hasUnsupportedFile) {
+      void message.error(UNSUPPORTED_FILE_MESSAGE);
+    }
+  };
+
   return (
     <Card>
       <Upload.Dragger
@@ -35,6 +43,7 @@ export const UploadCard = () => {
         showUploadList={false}
         beforeUpload={beforeUpload}
         customRequest={customRequest}
+        onDrop={onDrop}
       >
         <p className="ant-upload-drag-icon">
           <InboxOutlined />

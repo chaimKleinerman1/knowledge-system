@@ -7,11 +7,14 @@ from pymongo import AsyncMongoClient
 
 from ai.fake_client import FakeAiClient
 from config import Settings
+from database.assets_repository import AssetsRepository
+from database.files_repository import FILES_BUCKET_NAME
 from main import create_app
 from tests.conftest import image_bytes, make_settings
 
 MONGODB_TEST_URI = os.environ.get("MONGODB_TEST_URI", "")
 TEST_DATABASE_NAME = "knowledge_test"
+GRIDFS_FILES_COLLECTION = f"{FILES_BUCKET_NAME}.files"
 
 pytestmark = [
     pytest.mark.integration,
@@ -203,6 +206,23 @@ async def test_hebrew_language_code_is_stored_with_the_text_index(client: AsyncC
     assert response.status_code == 201
     assert response.json()["status"] == "ready"
     assert response.json()["ai"]["lang_code"] == "he"
+
+
+async def test_failed_insert_does_not_leave_the_stored_bytes_behind(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    async def failing_insert(self: AssetsRepository, document: dict) -> str:
+        raise RuntimeError("database write failed")
+
+    monkeypatch.setattr(AssetsRepository, "insert", failing_insert)
+    with pytest.raises(RuntimeError, match="database write failed"):
+        await upload(client, "hair_salon_notes.md", SALON_NOTES)
+
+    mongo_client = AsyncMongoClient(MONGODB_TEST_URI)
+    try:
+        assert await mongo_client[TEST_DATABASE_NAME][GRIDFS_FILES_COLLECTION].count_documents({}) == 0
+    finally:
+        await mongo_client.close()
 
 
 async def test_upload_errors_use_the_detail_shape(client: AsyncClient):

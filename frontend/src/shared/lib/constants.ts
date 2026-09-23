@@ -3,6 +3,7 @@ export const MAX_TEXT_BYTES = 1024 * 1024;
 export const FILE_TOO_BIG_MESSAGE = 'File is too big. Max 10 MB for images, 1 MB for text.';
 
 export const ACCEPTED_UPLOAD_TYPES = '.txt,.md,image/jpeg,image/png,image/webp,image/gif';
+export const UNSUPPORTED_FILE_MESSAGE = 'Only .txt, .md, JPEG, PNG, WebP and GIF files are supported.';
 
 export const SEARCH_DEBOUNCE_MS = 400;
 export const SEARCH_PLACEHOLDER = 'Search files by content, tags or meaning…';

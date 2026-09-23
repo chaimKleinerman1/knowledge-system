@@ -1,3 +1,4 @@
+import re
 from typing import Annotated
 from urllib.parse import quote
 
@@ -11,6 +12,8 @@ router = APIRouter(prefix="/assets", tags=["assets"])
 
 MAX_LIST_LIMIT = 200
 DEFAULT_LIST_LIMIT = 50
+# Anything outside printable ASCII is invalid in an HTTP header value, and uvicorn refuses to send it.
+HEADER_UNSAFE_CHARACTERS = re.compile(r"[^\x20-\x7e]")
 
 AssetServiceDependency = Annotated[AssetService, Depends(get_asset_service)]
 
@@ -73,5 +76,5 @@ def _content_length(request: Request) -> int | None:
 
 def _inline_disposition(filename: str) -> str:
     # Browsers need an ASCII fallback plus the RFC 5987 form for non-ASCII names.
-    ascii_name = filename.encode("ascii", "replace").decode("ascii").replace('"', "").replace("\\", "")
+    ascii_name = HEADER_UNSAFE_CHARACTERS.sub("?", filename).replace('"', "").replace("\\", "")
     return f"inline; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
