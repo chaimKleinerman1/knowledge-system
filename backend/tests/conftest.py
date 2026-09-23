@@ -7,7 +7,8 @@ from config import Settings
 
 
 def make_settings(**overrides: object) -> Settings:
-    return Settings(_env_file=None, **overrides)
+    # Unit tests never open a database; the placeholder URI only satisfies the required field.
+    return Settings(_env_file=None, **{"MONGODB_URI": "mongodb://localhost:27017", **overrides})
 
 
 def upload_file(filename: str, data: bytes) -> UploadFile:

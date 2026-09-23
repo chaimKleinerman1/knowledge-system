@@ -24,22 +24,20 @@ FastAPI (Python 3.11), one container that also serves the React build (same orig
 
 ## Run locally
 
-With Docker Compose (builds the frontend and the backend, starts a local MongoDB 8):
+The app needs two secrets in `.env`: a MongoDB connection string (an Atlas free-tier cluster works)
+and a Gemini API key. With Docker Compose (builds the frontend and the backend into one container):
 
 ```bash
-cp .env.example .env          # add GEMINI_API_KEY; leave MONGODB_URI empty for the local MongoDB
+cp .env.example .env          # fill in MONGODB_URI and GEMINI_API_KEY
 docker compose up --build     # or: make up
 open http://localhost:8000
 ```
-
-With an Atlas URI in `.env`, skip the local database: `docker compose up --build api --no-deps`.
 
 With dev servers (Python 3.11 and Node 24, see `frontend/.nvmrc`):
 
 ```bash
 make install                  # backend venv + requirements, frontend npm ci
-docker compose up mongo       # or point MONGODB_URI in .env at Atlas
-make dev-backend              # uvicorn with reload on http://localhost:8000
+make dev-backend              # uvicorn with reload on http://localhost:8000, reads .env
 make dev-frontend             # Vite on http://localhost:5173, proxies /api to :8000
 ```
 
@@ -49,7 +47,7 @@ Settings come from environment variables; `.env` is loaded at startup.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `MONGODB_URI` | `mongodb://localhost:27017` | Connection string; empty = local MongoDB. |
+| `MONGODB_URI` | required | MongoDB connection string (Atlas `mongodb+srv://...`). |
 | `MONGODB_DB_NAME` | `knowledge` | Database name. |
 | `GEMINI_API_KEY` | empty | Gemini API key, read by LiteLLM from the environment. |
 | `LLM_MODEL` | `gemini/gemini-3.1-flash-lite` | LiteLLM model id for describing files. |
@@ -99,7 +97,7 @@ wins. Each hit says whether it matched by keyword, by meaning, or both, shown as
 - No queue: processing runs in the request; `status`, `error` and a reprocess endpoint make
   failures visible and recoverable.
 - MongoDB text index + cosine in Python, not Atlas Search, so the same code runs on the Atlas free
-  tier and in a local `mongo:8` container.
+  tier and on any plain MongoDB 8 (the tests use a throwaway container).
 - `.txt` and `.md` only; PDF is a next step (Gemini reads PDF natively).
 
 ## Limits and assumptions
