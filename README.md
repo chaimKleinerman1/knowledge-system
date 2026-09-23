@@ -1,5 +1,8 @@
 # Knowledge Base
 
+Live demo: https://knowledge-system-638408023620.me-west1.run.app (Cloud Run, wakes up in a few
+seconds after idle time). Code: https://github.com/chaimKleinerman1/knowledge-system
+
 A one-page web app that turns uploaded files into searchable knowledge. You upload a text file
 (`.txt`, `.md`) or an image (JPEG, PNG, WebP, GIF); the backend asks Gemini for a description,
 tags, keywords, the text visible in the image, a category and the language, stores the file and
@@ -31,14 +34,6 @@ open http://localhost:8000
 
 With an Atlas URI in `.env`, skip the local database: `docker compose up --build api --no-deps`.
 
-Without an API key, a deterministic fake AI client stands in for Gemini (local and smoke use only).
-It writes made-up metadata, so give it its own database name when `.env` points at a real cluster:
-
-```bash
-AI_CLIENT=fake MONGODB_DB_NAME=knowledge_fake docker compose up --build
-make smoke                    # uploads two samples and checks two searches; needs only curl
-```
-
 With dev servers (Python 3.11 and Node 24, see `frontend/.nvmrc`):
 
 ```bash
@@ -62,7 +57,6 @@ Settings come from environment variables; `.env` is loaded at startup.
 | `MAX_IMAGE_BYTES` | `10485760` | Image upload limit (10 MB). |
 | `MAX_TEXT_BYTES` | `1048576` | Text upload limit (1 MB). |
 | `SEMANTIC_MIN_SCORE` | `0.5` | Cosine threshold for the semantic pass. |
-| `AI_CLIENT` | `litellm` | `fake` swaps in the deterministic test client. |
 
 See `.env.example` for the rest (timeouts, retries, output caps, CORS, port).
 
@@ -138,8 +132,10 @@ docker rm -f km-mongo-test
 ```
 
 Unit tests cover file validation, cosine and reciprocal rank fusion, input preparation, metadata
-normalisation and the React components; integration tests run the API end to end with the fake AI
-client (upload, dedupe, fail and retry, file download headers, search ranking, delete).
+normalisation and the React components; integration tests run the API end to end with a fake AI
+client that lives in the tests folder (upload, dedupe, fail and retry, file download headers,
+search ranking, delete). `make smoke` uploads two samples to a running server (`BASE_URL`,
+default `http://localhost:8000`) and checks two searches; it needs only curl.
 No test makes a paid AI call. Checked by hand in the browser with the real models: image and text
 upload, the size and type errors, search, the detail drawer, delete, a failed analysis and then
 "Retry analysis", a duplicate upload, phone width, light and dark mode.

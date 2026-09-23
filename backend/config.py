@@ -1,5 +1,3 @@
-from typing import Literal
-
 from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,8 +32,6 @@ class Settings(BaseSettings):
     SEARCH_LIMIT: int = 10
     CORS_ORIGINS: str = "http://localhost:5173"
     PORT: int = 8000
-    # "fake" is for local smoke runs only: deterministic metadata, no network calls.
-    AI_CLIENT: Literal["litellm", "fake"] = "litellm"
 
     @field_validator("MONGODB_URI", mode="before")
     @classmethod

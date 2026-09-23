@@ -11,7 +11,6 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from ai.client import AiClient, LiteLlmAiClient
-from ai.fake_client import FakeAiClient
 from config import Settings
 from database.assets_repository import AssetsRepository
 from database.files_repository import FilesRepository
@@ -30,16 +29,10 @@ STATIC_DIRECTORY = Path(__file__).parent / "static"
 API_PREFIX = "/api"
 
 
-def build_ai_client(settings: Settings) -> AiClient:
-    if settings.AI_CLIENT == "fake":
-        logger.warning("AI_CLIENT=fake: metadata is generated locally, no model is called")
-        return FakeAiClient(dimensions=settings.EMBEDDING_DIMENSIONS)
-    return LiteLlmAiClient(settings)
-
-
 def create_app(settings: Settings | None = None, ai_client: AiClient | None = None) -> FastAPI:
+    """Builds the app; tests pass their own settings and a fake AI client."""
     app_settings = settings or Settings()
-    app_ai_client = ai_client or build_ai_client(app_settings)
+    app_ai_client = ai_client or LiteLlmAiClient(app_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

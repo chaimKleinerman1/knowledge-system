@@ -4,7 +4,7 @@
 #
 #   BASE_URL=http://localhost:8000 bash scripts/smoke.sh
 #
-# Needs only curl. Run the server with AI_CLIENT=fake when no API key is available.
+# Needs only curl and a running server with a real API key.
 
 set -euo pipefail
 

@@ -5,10 +5,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient
 
-from ai.fake_client import FakeAiClient
 from ai.prompts import PROMPT_VERSION
 from main import create_app
 from tests.conftest import image_bytes, make_settings
+from tests.fake_ai_client import FakeAiClient
 
 MONGODB_TEST_URI = os.environ.get("MONGODB_TEST_URI", "")
 TEST_DATABASE_NAME = "knowledge_test"
