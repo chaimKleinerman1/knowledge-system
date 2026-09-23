@@ -86,6 +86,19 @@ vector and, for images, the image vector; the higher score counts), dropping any
 The two ranked lists are merged with reciprocal rank fusion, so something found by both passes
 wins. Each hit says whether it matched by keyword, by meaning, or both, shown as chips in the UI.
 
+The API, all under `/api`:
+
+| Method | Path | What it does |
+|---|---|---|
+| `POST` | `/assets` | Upload one file (multipart field `file`); 201, or 200 with `deduplicated: true` |
+| `GET` | `/assets` | List assets, newest first (`limit`, `offset`) |
+| `GET` | `/assets/{id}` | One asset with its full metadata and extracted text |
+| `GET` | `/assets/{id}/file` | The stored file bytes |
+| `POST` | `/assets/{id}/reprocess` | Run the AI analysis again |
+| `DELETE` | `/assets/{id}` | Remove the asset and its file |
+| `GET` | `/search?q=` | Keyword + semantic search, each hit with `matched_by` and `score` |
+| `GET` | `/health` | Service and database status |
+
 ## Decisions
 
 - One backend, one container: FastAPI serves the API and the React build, not two services.
