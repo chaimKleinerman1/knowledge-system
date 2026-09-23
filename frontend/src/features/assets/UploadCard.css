@@ -1,0 +1,11 @@
+.upload-job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.upload-job__filename {
+  min-width: 0;
+  flex: 1 1 160px;
+}

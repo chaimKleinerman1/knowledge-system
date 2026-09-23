@@ -1,0 +1,43 @@
+# Version control
+**/.git
+**/.gitignore
+
+# Secrets and local configuration are never baked into the image
+**/.env
+**/.env.*
+
+# Dependencies and virtual environments (installed fresh inside the image)
+**/node_modules
+**/.venv
+**/venv
+
+# Build outputs (the image builds its own)
+frontend/dist
+backend/static
+
+# Python caches
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+
+# Tests and test tooling are not needed at runtime
+backend/tests
+backend/requirements-test.txt
+backend/pytest.ini
+backend/ruff.toml
+
+# Repository files that the image does not use
+samples
+scripts
+docker-compose.yml
+Makefile
+README.md
+*.md
+
+# Editor and OS noise
+**/.idea
+**/.vscode
+**/.DS_Store
+**/*.swp
