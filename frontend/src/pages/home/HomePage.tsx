@@ -55,7 +55,8 @@ export const HomePage = () => {
         {search.isActive && (
           <SearchResultSummary
             query={search.query}
-            count={search.hasResult ? search.hits.length : null}
+            // While a new query loads the cached hits belong to the previous query, so no count is shown.
+            count={search.hasResult && !search.isFetching ? search.hits.length : null}
             isFetching={search.isFetching}
           />
         )}

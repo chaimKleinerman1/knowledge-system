@@ -119,7 +119,7 @@ them with comments.
 | `LLM_TIMEOUT_SECONDS` | `60` | Timeout per AI call. |
 | `LLM_MAX_RETRIES` | `3` | Retries per AI call with exponential backoff. |
 | `AI_CONCURRENCY` | `2` | Max AI calls in flight (keeps the free tier under its rate limit). |
-| `SEMANTIC_MIN_SCORE` | `0.45` | Cosine threshold for the semantic list. Measured on the samples: true matches 0.47–0.57, noise at or below 0.44. |
+| `SEMANTIC_MIN_SCORE` | `0.5` | Cosine threshold for the semantic list. Measured on the samples: true matches 0.50–0.59, nonsense queries up to 0.47. |
 | `SEARCH_LIMIT` | `10` | Results returned per search. |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma separated origins allowed to call the API. |
 | `PORT` | `8000` | Listening port. Cloud Run and Compose set it themselves. |
@@ -226,20 +226,26 @@ The evaluation set behind the design (the two images with hair are not shipped i
 | contract_summary.txt | no | hit (stemming) |
 
 Measured cosine scores on the shipped samples with `gemini-embedding-2` (text vector / image
-vector), which is where the `0.45` threshold comes from:
+vector), which is where the `0.5` threshold comes from:
 
 | Query | Right file | Its score | Best wrong file |
 |---|---|---|---|
-| black hair | hair_salon_notes.md | 0.53 | 0.47 (hebrew_note.txt, which is about hair too) |
-| dark automobile | black_car.png | 0.47 / 0.44 | 0.40 |
+| black hair | hair_salon_notes.md | 0.53–0.59 | 0.47 (hebrew_note.txt, which is about hair too) |
+| dark automobile | black_car.png | 0.47 / 0.44 (keyword pass finds it) | 0.40 |
 | document | receipt.png, id_card.png, contract_summary.txt | 0.57, 0.52, 0.50 | 0.49 |
 | coffee | receipt.png | 0.57 | 0.44 |
 | שיער שחור (Hebrew) | hebrew_note.txt, hair_salon_notes.md | 0.57, 0.51 | 0.41 |
 | quantum physics lecture (no match) | none | – | 0.38 |
+| zzzzqq, asdfgh, xyz (nonsense) | none | – | 0.43–0.47 (the receipt) |
 
-Image vectors score lower than text vectors for the same query (0.44 vs 0.47 for the car), so the
-text vector usually wins; the image vector is the fallback for pictures whose description missed the
-detail. Hebrew queries find English files through meaning, which the keyword pass cannot do.
+Two lessons from the numbers. A file full of numbers and short labels (a receipt) sits close to
+everything, so nonsense queries reach 0.47 against it; the threshold has to stay above that, which
+costs the "dark automobile" match at 0.47 (the keyword pass still finds the car through its
+"automobile" keyword). Image vectors score lower than text vectors for the same query (0.44 vs
+0.47 for the car), so the text vector usually wins and the image vector is the fallback for
+pictures whose description missed a detail. Hebrew queries find English files through meaning,
+which the keyword pass cannot do. Loosely related files can still appear at the bottom of a result
+list with only the "meaning" chip; a relative cut-off below the best semantic score is a next step.
 
 ## Decisions and trade-offs
 
@@ -358,6 +364,14 @@ The whole stack: `docker compose up --build` with `AI_CLIENT=fake`, then `make s
 
 No test makes a paid AI call. The `FakeAiClient` returns deterministic metadata derived from the
 filename or text, and fixed unit vectors.
+
+### Checked by hand in the browser
+
+With the real models, on a throwaway database: the empty state, uploading an image and a text
+file (the "Analyzing with AI…" row, then the tags), the "too big" and "unsupported type" messages,
+search with and without pressing Enter, the no-results state, the detail drawer (preview, metadata,
+the text found in the image), delete with its confirmation, a failed analysis (wrong API key) and
+"Retry analysis" after the key was fixed, a duplicate upload, phone width, and light and dark mode.
 
 ## AI tools used during development
 
