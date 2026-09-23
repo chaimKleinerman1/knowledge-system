@@ -24,6 +24,7 @@ import { formatCategory, formatLanguage } from '@/shared/lib/labels';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { TagList } from '@/shared/ui/TagList';
 
+import { isStuckProcessing } from './asset-status';
 import { useAsset } from './hooks/use-asset';
 import { useDeleteAsset } from './hooks/use-delete-asset';
 import { useReprocessAsset } from './hooks/use-reprocess-asset';
@@ -135,13 +136,21 @@ const AssetDetails = ({ asset }: AssetDetailsProps) => (
         description={asset.error ?? 'No details were given.'}
       />
     )}
-    {asset.status === 'processing' && (
-      <Alert
-        type="info"
-        showIcon
-        title="Analyzing with AI…"
-      />
-    )}
+    {asset.status === 'processing' &&
+      (isStuckProcessing(asset) ? (
+        <Alert
+          type="warning"
+          showIcon
+          title="The analysis did not finish"
+          description="The upload was interrupted. Use Retry analysis to run it again."
+        />
+      ) : (
+        <Alert
+          type="info"
+          showIcon
+          title="Analyzing with AI…"
+        />
+      ))}
     {asset.ai && (
       <AiMetadataSection
         metadata={asset.ai}
@@ -218,7 +227,7 @@ export const AssetDetailDrawer = ({ assetId, onClose }: AssetDetailDrawerProps) 
       >
         Open file
       </Button>
-      {asset.status === 'failed' && (
+      {(asset.status === 'failed' || isStuckProcessing(asset)) && (
         <Button
           type="primary"
           icon={<ReloadOutlined />}

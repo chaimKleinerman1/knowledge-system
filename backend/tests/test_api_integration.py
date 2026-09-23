@@ -134,15 +134,17 @@ async def test_delete_removes_the_asset_and_its_file(client: AsyncClient):
     assert (await client.get("/api/assets")).json()["total"] == 0
 
 
-async def test_search_ranks_the_phrase_hit_above_the_or_only_hit(client: AsyncClient):
+async def test_search_requires_every_word_and_ranks_the_phrase_first(client: AsyncClient):
     await upload(client, "car.txt", CAR_NOTES)
+    await upload(client, "scattered.txt", b"Long hair, dyed black last week.\n")
     await upload(client, "hair_salon_notes.md", SALON_NOTES)
     response = await client.get("/api/search", params={"q": "black hair"})
     assert response.status_code == 200
     body = response.json()
     assert body["query"] == "black hair"
     filenames = [hit["filename"] for hit in body["items"]]
-    assert filenames == ["hair_salon_notes.md", "car.txt"]
+    # The exact phrase ranks first, both words apart still match, one word alone does not.
+    assert filenames == ["hair_salon_notes.md", "scattered.txt"]
     assert "keyword" in body["items"][0]["matched_by"]
     assert body["items"][0]["score"] > body["items"][1]["score"]
 

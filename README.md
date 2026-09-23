@@ -75,12 +75,13 @@ Upload runs inside one request; the UI shows "Uploading…", then "Analyzing wit
    into a vector; for images the same call also embeds the pixels, so an image gets a second vector.
 5. **Save.** The document gets the metadata, the vectors and `status: "ready"`. An AI error sets
    `status: "failed"` with a short message; the upload still returns 201, and "Retry analysis"
-   in the UI calls `POST /api/assets/{id}/reprocess`.
+   in the UI calls `POST /api/assets/{id}/reprocess`. The same button appears for an upload that
+   was interrupted mid-analysis and stayed "processing" for more than two minutes.
 
 Search runs two passes and merges them. The keyword pass uses one weighted MongoDB text index
 over tags, category, keywords, description, visible text, filename and extracted text. MongoDB
-ORs the words of a query, so "black hair" alone would also return a black car; the service runs
-the phrase query first and the plain query second, phrase hits on top. The semantic pass embeds
+ORs bare words, so a plain "black hair" would also return a black car; the service runs the exact
+phrase first, then a query that requires every word, phrase hits on top. The semantic pass embeds
 the query and compares it by cosine similarity with every ready asset's stored vectors (the text
 vector and, for images, the image vector; the higher score counts), dropping anything under 0.5.
 The two ranked lists are merged with reciprocal rank fusion, so something found by both passes
@@ -163,6 +164,9 @@ are the author's.
 
 ## Next steps
 
+- An automated check of the real model: a test that runs only when a key is present, uploads the
+  samples and asserts the expected tags and search hits, so prompt changes are measured, not
+  eyeballed.
 - PDF support through Gemini's native PDF input.
 - Object storage (GCS or S3) for the file bytes once they outgrow the Atlas free tier.
 - Atlas Vector Search with `$rankFusion` instead of the Python cosine loop when the corpus grows.

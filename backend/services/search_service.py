@@ -54,11 +54,13 @@ class SearchService:
         ]
 
     async def _keyword_pass(self, query: str) -> dict[str, Asset]:
-        # MongoDB ORs the words of a plain query, so "black hair" also matches a black car.
-        # The phrase query goes first so exact matches outrank the OR-only ones.
-        phrase_query = f'"{query.replace(chr(34), " ")}"'
+        # MongoDB ORs bare words, so a plain "black hair" would also match a black car. The exact
+        # phrase goes first; the second pass quotes every word, which makes each of them required.
+        cleaned = query.replace(chr(34), " ")
+        phrase_query = f'"{cleaned}"'
+        all_words_query = " ".join(f'"{word}"' for word in cleaned.split())
         ordered: dict[str, Asset] = {}
-        for text_query in (phrase_query, query):
+        for text_query in (phrase_query, all_words_query):
             for asset in await self._assets.search_text(text_query, PASS_LIMIT):
                 ordered.setdefault(asset.id, asset)
         return ordered
